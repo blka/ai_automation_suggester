@@ -32,18 +32,26 @@ _LOGGER = logging.getLogger(__name__)
 # ─────────────────────────────────────────────────────────────
 YAML_RE = re.compile(r"```yaml\s*([\s\S]+?)\s*```", flags=re.IGNORECASE)
 
-SYSTEM_PROMPT = """You are an AI assistant that generates Home Assistant automations
-based on entities, areas and devices, and suggests improvements to existing automations.
-
-For each entity:
-1. Understand its function and context.
-2. Consider its current state and attributes.
-3. Suggest context‑aware automations or tweaks, including real entity_ids.
-
-If asked to focus on a theme (energy saving, presence lighting, etc.), integrate it.
-Also review existing automations and propose improvements.
-If you see a lot of text in a different language, focus on it for a translation for your output.
-"""
+# ─────────────────────────────────────────────────────────────
+# Helper function to get system prompt
+# ─────────────────────────────────────────────────────────────
+def get_system_prompt(lang: str = "en") -> str:
+    """
+    Get the system prompt for a given language.
+    
+    Args:
+        lang: Language code (e.g., 'en', 'pl', 'de', etc.) or full locale (e.g., 'pl_PL')
+    
+    Returns:
+        The system prompt in the specified language, or English as fallback.
+    """
+    # Normalize language code (e.g., "pl_PL" or "pl-PL" -> "pl")
+    if not lang:
+        lang = "en"
+    lang_code = lang.split("_")[0].split("-")[0].lower()
+    
+    # Return prompt for language, fallback to English
+    return SYSTEM_PROMPTS.get(lang_code, SYSTEM_PROMPTS["en"])
 
 
 # =============================================================================
@@ -63,7 +71,9 @@ class AIAutomationCoordinator(DataUpdateCoordinator):
         self.last_update: datetime | None = None
 
         # Tunables modified by the generate_suggestions service
-        self.SYSTEM_PROMPT = SYSTEM_PROMPT
+        # Get system prompt based on Home Assistant language configuration
+        hass_language = hass.config.language or "en"
+        self.SYSTEM_PROMPT = get_system_prompt(hass_language)
         self.scan_all = False
         self.selected_domains: list[str] = []
         self.entity_limit = 200
